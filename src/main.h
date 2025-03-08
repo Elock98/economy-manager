@@ -2,10 +2,13 @@
 #define MYAPP_H
 
 #include <wx/wx.h>
+#include <cstdlib>
+#include "CommonTools.h"
 
 class EconoManagerApp : public wxApp {
 public:
     virtual bool OnInit();
+    bool SetupDataDir();
 };
 
 class MainFrame : public wxFrame {

@@ -12,8 +12,8 @@ BIN_DIR := build
 TARGET := $(BIN_DIR)/EconoManager
 
 # Source files
-SRC := $(SRC_DIR)/main.cpp
-OBJ := $(OBJ_DIR)/main.o
+SRC := $(SRC_DIR)/main.cpp $(SRC_DIR)/CommonTools.cpp
+OBJ := $(OBJ_DIR)/main.o $(OBJ_DIR)/CommonTools.o
 
 # Rules for building
 .PHONY: all clean
@@ -27,6 +27,10 @@ $(TARGET): $(OBJ)
 
 # Compile Editor
 $(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(SRC_DIR)/main.h
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/CommonTools.o: $(SRC_DIR)/CommonTools.cpp $(SRC_DIR)/CommonTools.h
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
