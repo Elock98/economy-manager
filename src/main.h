@@ -4,6 +4,7 @@
 #include <wx/wx.h>
 #include <cstdlib>
 #include "CommonTools.h"
+#include "BillTracker.h"
 
 class EconoManagerApp : public wxApp {
 public:
