@@ -80,6 +80,16 @@ bool BillTracker::StoreBills() {
     return true;
 }
 
+bool BillTracker::AddBillMonth(const BillMonth& bm) {
+    if (std::any_of(mBillData.begin(), mBillData.end(), [&bm](BillMonth& lhs) {
+        return lhs.GetDate() == bm.GetDate();
+    }))
+        return false;
+
+    mBillData.emplace_back(bm);
+    return true;
+}
+
 std::string BillTracker::ParseFileName(std::string filename) {
     // Input should be formatted as "Bills_YYYY_MM.csv"
     size_t pos = filename.find('_');

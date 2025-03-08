@@ -40,6 +40,7 @@ public:
     bool LoadBills();
     bool StoreBills();
 
+    bool AddBillMonth(const BillMonth& bm);
 
     // Access bill months
     int GetBillMonthCount() { return int(mBillData.size()); }
