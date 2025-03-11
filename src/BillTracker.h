@@ -3,7 +3,14 @@
 #include <vector>
 #include <cassert>
 #include <algorithm>
+#include <wx/wx.h>
+#include <wx/panel.h>
+#include <wx/datectrl.h>
+#include <wx/valnum.h>
+#include <wx/listctrl.h>
 #include "CommonTools.h"
+#include <wx/simplebook.h>
+#include <wx/statline.h>
 
 class Bill {
 public:
@@ -51,4 +58,37 @@ private:
     std::string mBillsDataPath = "";
     std::vector<BillMonth> mBillData;
 
+};
+
+class BillPanel : public wxPanel {
+public:
+    BillPanel(wxWindow* parent, BillTracker* bt);
+private:
+    class BillPanelRow {
+    public:
+        BillPanelRow(wxWindow* parent, Bill* bill) : mParent(parent), mBill(bill) {}
+        wxBoxSizer* GetLayout();
+    private:
+        wxWindow* mParent;
+        Bill* mBill;
+
+        wxBoxSizer* mRowSizer;
+        wxStaticText* mCreditorLabel;
+        wxTextCtrl* mBillAmountCtrl;
+        wxCheckBox* mHasPaid;
+        wxDatePickerCtrl* mPaidDate;
+    };
+
+    class BillCollectionPanel : public wxPanel {
+    public:
+        BillCollectionPanel(wxWindow* parent, BillMonth* bm);
+    private:
+        wxWindow* mParent;
+        BillMonth* mBillCollection;
+
+        wxBoxSizer* mSizer;
+    };
+
+    BillTracker* mBillTracker;
+    wxBoxSizer* mTopSizer;
 };

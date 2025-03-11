@@ -99,3 +99,74 @@ std::string BillTracker::ParseFileName(std::string filename) {
     }
     return filename.substr(pos + 1, 7);
 }
+
+BillPanel::BillPanel(wxWindow* parent, BillTracker* bt)
+    : wxPanel(parent, wxID_ANY)
+{
+    mTopSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // ListCtrl will control switching between months
+    wxListCtrl* monthSelector = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_NO_HEADER);
+    monthSelector->SetMinSize(wxSize(200, -1));
+    monthSelector->InsertColumn(0, "");
+
+    // Collect the month panels in a tab-less notebook
+    wxSimplebook* monthBook = new wxSimplebook(this, wxID_ANY);
+
+    for (int i = 0; i < bt->GetBillMonthCount(); ++i) {
+        auto bm = bt->GetBillMonth(i);
+        monthSelector->InsertItem(i, bm.GetDate());
+        monthBook->AddPage(new BillCollectionPanel(monthBook, &bm), "");
+    }
+
+    mTopSizer->Add(monthSelector, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 5);
+    mTopSizer->Add(new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_VERTICAL), 0, wxEXPAND | wxALL, 5);
+    mTopSizer->Add(monthBook, 1, wxEXPAND | wxALL, 20);
+
+    monthSelector->Bind(wxEVT_LIST_ITEM_SELECTED, [monthBook](wxListEvent& event) {
+        monthBook->SetSelection(event.GetIndex());
+    });
+
+    SetSizer(mTopSizer);
+    Layout();
+
+}
+
+wxBoxSizer* BillPanel::BillPanelRow::GetLayout() {
+    mRowSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    mCreditorLabel = new wxStaticText(mParent, wxID_ANY, mBill->mCreditor);
+
+    wxFloatingPointValidator<double> numValidator(2);
+    numValidator.SetMin(0.0);
+    numValidator.SetMax(99999.99);
+
+    mBillAmountCtrl = new wxTextCtrl(mParent, wxID_ANY, mBill->mBillAmount, wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT, numValidator);
+
+    mHasPaid = new wxCheckBox(mParent, wxID_ANY, "");
+    mHasPaid->SetValue(mBill->mIsPaid == "true");
+
+    mPaidDate = new wxDatePickerCtrl(mParent, wxID_ANY, wxDefaultDateTime, wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+
+    mRowSizer->Add(mCreditorLabel, 2, wxEXPAND | wxALL, 5);
+    mRowSizer->Add(mBillAmountCtrl, 1, wxEXPAND | wxALL, 5);
+    mRowSizer->Add(mPaidDate, 1, wxEXPAND | wxALL, 5);
+    mRowSizer->Add(mHasPaid, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+
+    return mRowSizer;
+
+}
+
+BillPanel::BillCollectionPanel::BillCollectionPanel(wxWindow* parent, BillMonth* bm)
+    : wxPanel(parent, wxID_ANY), mParent(parent), mBillCollection(bm)
+{
+    mSizer = new wxBoxSizer(wxVERTICAL);
+
+    // Get a BillPanelRow for each bill
+    for (int ix = 0; ix < mBillCollection->BillCount(); ++ix) {
+        BillPanelRow* bpr = new BillPanelRow(this, &mBillCollection->GetBill(ix));
+        mSizer->Add(bpr->GetLayout(), 0, wxEXPAND);
+    }
+    SetSizer(mSizer);
+    Layout();
+}

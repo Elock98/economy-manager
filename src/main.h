@@ -10,6 +10,12 @@ class EconoManagerApp : public wxApp {
 public:
     virtual bool OnInit();
     bool SetupDataDir();
+
+    std::string GetDataDir() { return mDataDir; }
+    std::string GetBillsDir() { return mBillsDir; }
+private:
+    std::string mDataDir = "";
+    std::string mBillsDir = "";
 };
 
 class MainFrame : public wxFrame {
