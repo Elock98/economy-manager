@@ -9,7 +9,7 @@ int BillMonth::BillCount() {
 }
 
 void BillMonth::AddBill(Bill bill) {
-    mBills.push_back(bill);
+    mBills.push_back(std::make_shared<Bill>(bill));
 }
 
 void BillMonth::RemoveBill(int ix) {
@@ -20,7 +20,7 @@ void BillMonth::RemoveBill(int ix) {
     mBills.erase(mBills.begin() + ix);
 }
 
-Bill& BillMonth::GetBill(int ix) {
+std::shared_ptr<Bill> BillMonth::GetBill(int ix) {
     assert(ix < BillCount());
     return mBills.at(ix);
 }
@@ -47,18 +47,18 @@ bool BillTracker::LoadBills() {
             Bill bl(bill[0], bill[1], bill[2], bill[3]);
             bm.AddBill(bl);
         }
-        mBillData.push_back(bm);
+        mBillData.push_back(std::make_shared<BillMonth>(bm));
     }
 
     // Sort the data
-    sort(mBillData.begin(), mBillData.end(), [](const BillMonth& a, const BillMonth& b) {
-        return a.GetDate() > b.GetDate();
+    sort(mBillData.begin(), mBillData.end(), [](const std::shared_ptr<BillMonth>& a, const std::shared_ptr<BillMonth>& b) {
+        return a->GetDate() > b->GetDate();
     });
 
     // Check if current year and month exist in our data (should be the first in the vector)
     std::string currentDateTime = Time::TimeToStr(Time::GetCurrentTime(), "%Y_%m");
-    if (int(mBillData.size()) == 0 || mBillData[0].GetDate() != currentDateTime)
-        mBillData.insert(mBillData.begin(), BillMonth(currentDateTime));
+    if (int(mBillData.size()) == 0 || mBillData[0]->GetDate() != currentDateTime)
+        mBillData.insert(mBillData.begin(), std::make_shared<BillMonth>(BillMonth(currentDateTime)));
 
     return true;
 }
@@ -67,12 +67,12 @@ bool BillTracker::StoreBills() {
     const std::string filenamePrefix = mBillsDataPath + "/Bills_";
 
     for (auto billMonth : mBillData) {
-        std::string filename = filenamePrefix + billMonth.GetDate() + ".csv";
+        std::string filename = filenamePrefix + billMonth->GetDate() + ".csv";
         std::string data = "";
-        for (int ix = 0; ix < billMonth.BillCount(); ix++) {
-            auto bill = billMonth.GetBill(ix);
-            data += String::JoinStrings({bill.mCreditor, bill.mBillAmount, bill.mIsPaid, bill.mPaidDate}, ",");
-            if (ix != billMonth.BillCount() - 1) // Append newline for all but the last
+        for (int ix = 0; ix < billMonth->BillCount(); ix++) {
+            auto bill = billMonth->GetBill(ix);
+            data += String::JoinStrings({bill->mCreditor, bill->mBillAmount, bill->mIsPaid, bill->mPaidDate}, ",");
+            if (ix != billMonth->BillCount() - 1) // Append newline for all but the last
                 data += "\n";
         }
         FileSystem::WriteFile(filename, data);
@@ -81,12 +81,12 @@ bool BillTracker::StoreBills() {
 }
 
 bool BillTracker::AddBillMonth(const BillMonth& bm) {
-    if (std::any_of(mBillData.begin(), mBillData.end(), [&bm](BillMonth& lhs) {
-        return lhs.GetDate() == bm.GetDate();
+    if (std::any_of(mBillData.begin(), mBillData.end(), [&bm](std::shared_ptr<BillMonth> lhs) {
+        return lhs->GetDate() == bm.GetDate();
     }))
         return false;
 
-    mBillData.emplace_back(bm);
+    mBillData.emplace_back(std::make_shared<BillMonth>(bm));
     return true;
 }
 
@@ -99,6 +99,10 @@ std::string BillTracker::ParseFileName(std::string filename) {
     }
     return filename.substr(pos + 1, 7);
 }
+
+//-----------------------------------------
+//  Bill UI
+//-----------------------------------------
 
 BillPanel::BillPanel(wxWindow* parent, BillTracker* bt)
     : wxPanel(parent, wxID_ANY)
@@ -115,8 +119,8 @@ BillPanel::BillPanel(wxWindow* parent, BillTracker* bt)
 
     for (int i = 0; i < bt->GetBillMonthCount(); ++i) {
         auto bm = bt->GetBillMonth(i);
-        monthSelector->InsertItem(i, bm.GetDate());
-        monthBook->AddPage(new BillCollectionPanel(monthBook, &bm), "");
+        monthSelector->InsertItem(i, bm->GetDate());
+        monthBook->AddPage(new BillCollectionPanel(monthBook, bm), "");
     }
 
     mTopSizer->Add(monthSelector, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 5);
@@ -157,14 +161,15 @@ wxBoxSizer* BillPanel::BillPanelRow::GetLayout() {
 
 }
 
-BillPanel::BillCollectionPanel::BillCollectionPanel(wxWindow* parent, BillMonth* bm)
+BillPanel::BillCollectionPanel::BillCollectionPanel(wxWindow* parent, std::shared_ptr<BillMonth> bm)
     : wxPanel(parent, wxID_ANY), mParent(parent), mBillCollection(bm)
 {
     mSizer = new wxBoxSizer(wxVERTICAL);
 
     // Get a BillPanelRow for each bill
     for (int ix = 0; ix < mBillCollection->BillCount(); ++ix) {
-        BillPanelRow* bpr = new BillPanelRow(this, &mBillCollection->GetBill(ix));
+        BillPanelRow* bpr = new BillPanelRow(this, mBillCollection->GetBill(ix));
+        mRows.emplace_back(bpr);
         mSizer->Add(bpr->GetLayout(), 0, wxEXPAND);
     }
     SetSizer(mSizer);

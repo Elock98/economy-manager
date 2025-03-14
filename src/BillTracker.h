@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <memory>
 #include <cassert>
 #include <algorithm>
 #include <wx/wx.h>
@@ -30,12 +31,12 @@ public:
     int BillCount();
     void AddBill(Bill bill);
     void RemoveBill(int ix);
-    Bill& GetBill(int ix);
+    std::shared_ptr<Bill> GetBill(int ix);
     std::string GetDate() const { return mDate; }
 
 private:
     std::string       mDate; // The year and month this collection represents ("YYYY_MM")
-    std::vector<Bill> mBills;
+    std::vector<std::shared_ptr<Bill>> mBills;
 };
 
 class BillTracker {
@@ -51,12 +52,12 @@ public:
 
     // Access bill months
     int GetBillMonthCount() { return int(mBillData.size()); }
-    BillMonth& GetBillMonth(int ix) { assert(ix >= 0 && ix < int(mBillData.size())); return mBillData[ix]; }
+    std::shared_ptr<BillMonth> GetBillMonth(int ix) { assert(ix >= 0 && ix < int(mBillData.size())); return mBillData[ix]; }
 private:
     std::string ParseFileName(std::string filename);
 private:
     std::string mBillsDataPath = "";
-    std::vector<BillMonth> mBillData;
+    std::vector<std::shared_ptr<BillMonth>> mBillData;
 
 };
 
@@ -66,11 +67,11 @@ public:
 private:
     class BillPanelRow {
     public:
-        BillPanelRow(wxWindow* parent, Bill* bill) : mParent(parent), mBill(bill) {}
+        BillPanelRow(wxWindow* parent, std::shared_ptr<Bill> bill) : mParent(parent), mBill(bill) {}
         wxBoxSizer* GetLayout();
     private:
         wxWindow* mParent;
-        Bill* mBill;
+        std::shared_ptr<Bill> mBill;
 
         wxBoxSizer* mRowSizer;
         wxStaticText* mCreditorLabel;
@@ -81,11 +82,12 @@ private:
 
     class BillCollectionPanel : public wxPanel {
     public:
-        BillCollectionPanel(wxWindow* parent, BillMonth* bm);
+        BillCollectionPanel(wxWindow* parent, std::shared_ptr<BillMonth> bm);
     private:
         wxWindow* mParent;
-        BillMonth* mBillCollection;
+        std::shared_ptr<BillMonth> mBillCollection;
 
+        std::vector<std::shared_ptr<BillPanelRow>> mRows;
         wxBoxSizer* mSizer;
     };
 
