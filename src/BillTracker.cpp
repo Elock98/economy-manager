@@ -117,38 +117,59 @@ std::string BillTracker::ParseFileName(std::string filename) {
 //-----------------------------------------
 
 BillPanel::BillPanel(wxWindow* parent, BillTracker* bt)
-    : wxPanel(parent, wxID_ANY)
+    : wxPanel(parent, wxID_ANY), mBillTracker(bt)
 {
     mTopSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxBoxSizer* billCollectionSizer = new wxBoxSizer(wxVERTICAL);
 
     // ListCtrl will control switching between months
-    wxListCtrl* monthSelector = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_NO_HEADER);
-    monthSelector->SetMinSize(wxSize(200, -1));
-    monthSelector->InsertColumn(0, "");
+    mMonthSelector = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_NO_HEADER);
+    mMonthSelector->SetMinSize(wxSize(200, -1));
+    mMonthSelector->InsertColumn(0, "");
 
     // Collect the month panels in a tab-less notebook
-    wxSimplebook* monthBook = new wxSimplebook(this, wxID_ANY);
+    mMonthBook = new wxSimplebook(this, wxID_ANY);
 
     for (int i = 0; i < bt->GetBillMonthCount(); ++i) {
         auto bm = bt->GetBillMonth(i);
-        monthSelector->InsertItem(i, bm->GetDate());
-        monthBook->AddPage(new BillCollectionPanel(monthBook, bm), "");
+        mMonthSelector->InsertItem(i, bm->GetDate());
+        mMonthBook->AddPage(new BillCollectionPanel(mMonthBook, bm), "");
     }
 
-    mTopSizer->Add(monthSelector, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 5);
-    mTopSizer->Add(new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_VERTICAL), 0, wxEXPAND | wxALL, 5);
-    mTopSizer->Add(monthBook, 1, wxEXPAND | wxALL, 20);
+    wxButton* save = new wxButton(this, wxID_ANY, "Save");
 
-    monthSelector->Bind(wxEVT_LIST_ITEM_SELECTED, [monthBook](wxListEvent& event) {
-        monthBook->SetSelection(event.GetIndex());
-    });
+    billCollectionSizer->Add(mMonthBook, 1, wxEXPAND | wxTOP | wxBOTTOM, 20);
+    billCollectionSizer->Add(save, 0, wxALL, 5);
+
+
+    mTopSizer->Add(mMonthSelector, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 5);
+    mTopSizer->Add(new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_VERTICAL), 0, wxEXPAND | wxALL, 5);
+    mTopSizer->Add(billCollectionSizer, 1, wxEXPAND | wxTOP | wxBOTTOM, 20);
+
+    mMonthSelector->Bind(wxEVT_LIST_ITEM_SELECTED, &BillPanel::OnSelection, this);
+
+    save->Bind(wxEVT_BUTTON, &BillPanel::OnSaveButton, this);
 
     SetSizer(mTopSizer);
     Layout();
 
 }
 
-wxBoxSizer* BillPanel::BillPanelRow::GetLayout() {
+void BillPanel::OnSaveButton(wxCommandEvent& evt) {
+    auto page = dynamic_cast<BillCollectionPanel*>(mMonthBook->GetCurrentPage());
+    if (page == nullptr) {
+        assert(false);
+        return;
+    }
+    page->UpdateBillMonth();
+    mBillTracker->StoreBill(mMonthBook->GetSelection());
+}
+
+void BillPanel::OnSelection(wxListEvent& evt) {
+    mMonthBook->SetSelection(evt.GetIndex());
+}
+
+void BillPanel::BillPanelRow::Build() {
     mRowSizer = new wxBoxSizer(wxHORIZONTAL);
 
     mCreditorLabel = new wxStaticText(mParent, wxID_ANY, mBill->mCreditor);
@@ -164,13 +185,66 @@ wxBoxSizer* BillPanel::BillPanelRow::GetLayout() {
 
     mPaidDate = new wxDatePickerCtrl(mParent, wxID_ANY, wxDefaultDateTime, wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
 
+    wxBitmapButton* delButton = new wxBitmapButton(mParent, wxID_ANY, wxArtProvider::GetBitmap(wxART_CROSS_MARK, wxART_BUTTON));
+    delButton->SetToolTip("Delete bill");
+
     mRowSizer->Add(mCreditorLabel, 2, wxEXPAND | wxALL, 5);
     mRowSizer->Add(mBillAmountCtrl, 1, wxEXPAND | wxALL, 5);
     mRowSizer->Add(mPaidDate, 1, wxEXPAND | wxALL, 5);
     mRowSizer->Add(mHasPaid, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    mRowSizer->Add(new wxStaticLine(mParent, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_VERTICAL), 0, wxEXPAND | wxALL, 5);
+    mRowSizer->Add(delButton, 0, wxALL, 5);
 
+    delButton->Bind(wxEVT_BUTTON, &BillPanelRow::OnDelete, this);
+}
+
+wxBoxSizer* BillPanel::BillPanelRow::GetLayout() {
     return mRowSizer;
+}
 
+void BillPanel::BillPanelRow::UpdateBillFromUI() {
+    mBill->mBillAmount = mBillAmountCtrl->GetValue().ToStdString();
+    mBill->mPaidDate = std::string(mPaidDate->GetValue().FormatISODate().mb_str());
+    mBill->mIsPaid = mHasPaid->GetValue();
+}
+
+void BillPanel::BillPanelRow::OnDelete(wxCommandEvent& evt) {
+    if (wxMessageBox("Are you sure you want to delete this bill?", "Confirm deletion", wxYES_NO | wxICON_WARNING) == wxNO)
+        return;
+
+    // Signal parent to remove me
+    static_cast<BillCollectionPanel*>(mParent)->RemoveBill(mBill->mCreditor);
+}
+
+void BillPanel::BillCollectionPanel::UpdateBillMonth() {
+    for (auto row : mRows) {
+        row->UpdateBillFromUI();
+    }
+}
+
+void BillPanel::BillCollectionPanel::RemoveBill(const std::string creditor) {
+    // Remove bill with given creditor
+    for (int ix = 0; ix < mBillCollection->BillCount(); ++ix) {
+        auto bill = mBillCollection->GetBill(ix);
+        if (bill->mCreditor == creditor) {
+            mBillCollection->RemoveBill(ix);
+            // Assume that the bill has the same ix in collection as row
+            auto bpr = mRows.at(ix);
+            mSizer->Detach(static_cast<wxSizer*>(bpr->GetLayout()));
+            for (auto child : bpr->GetLayout()->GetChildren()) {
+                if (child) child->GetWindow()->Destroy();
+            }
+            delete bpr->GetLayout();
+            delete bpr;
+            mRows.erase(mRows.begin() + ix);
+
+            Layout();
+            Refresh(true);
+            mParent->Layout();
+            mParent->Refresh(true);
+            return;
+        }
+    }
 }
 
 BillPanel::BillCollectionPanel::BillCollectionPanel(wxWindow* parent, std::shared_ptr<BillMonth> bm)
@@ -178,12 +252,17 @@ BillPanel::BillCollectionPanel::BillCollectionPanel(wxWindow* parent, std::share
 {
     mSizer = new wxBoxSizer(wxVERTICAL);
 
+    if (mBillCollection->BillCount() > 0)
+        mSizer->Add(new wxStaticLine(mParent, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_HORIZONTAL), 0, wxEXPAND | wxALL, 5);
     // Get a BillPanelRow for each bill
     for (int ix = 0; ix < mBillCollection->BillCount(); ++ix) {
         BillPanelRow* bpr = new BillPanelRow(this, mBillCollection->GetBill(ix));
         mRows.emplace_back(bpr);
+        bpr->Build();
         mSizer->Add(bpr->GetLayout(), 0, wxEXPAND);
+        //mSizer->Add(new wxStaticLine(mParent, wxID_ANY, wxDefaultPosition, wxSize(5, -1), wxLI_HORIZONTAL), 0, wxEXPAND | wxALL, 5);
     }
+
     SetSizer(mSizer);
     Layout();
 }

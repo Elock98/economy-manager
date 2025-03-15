@@ -12,6 +12,8 @@
 #include "CommonTools.h"
 #include <wx/simplebook.h>
 #include <wx/statline.h>
+#include <wx/bmpbuttn.h>
+#include <wx/artprov.h>
 
 class Bill {
 public:
@@ -19,8 +21,8 @@ public:
     Bill(std::string creditor, std::string amount, std::string isPaid = "false", std::string paiddate = "")
         : mCreditor(creditor), mBillAmount(amount), mIsPaid(isPaid), mPaidDate(paiddate) { }
     std::string mCreditor;
-    std::string      mBillAmount;
-    std::string        mIsPaid;
+    std::string mBillAmount;
+    std::string mIsPaid;
     std::string mPaidDate;
 };
 
@@ -65,11 +67,23 @@ private:
 class BillPanel : public wxPanel {
 public:
     BillPanel(wxWindow* parent, BillTracker* bt);
+    ~BillPanel() {}
 private:
+    void OnSaveButton(wxCommandEvent& evt);
+    void OnSelection(wxListEvent& evt);
+
     class BillPanelRow {
     public:
         BillPanelRow(wxWindow* parent, std::shared_ptr<Bill> bill) : mParent(parent), mBill(bill) {}
+        ~BillPanelRow() {}
+
+        void Build();
         wxBoxSizer* GetLayout();
+
+        void UpdateBillFromUI();
+
+    private:
+        void OnDelete(wxCommandEvent& evt);
     private:
         wxWindow* mParent;
         std::shared_ptr<Bill> mBill;
@@ -84,14 +98,22 @@ private:
     class BillCollectionPanel : public wxPanel {
     public:
         BillCollectionPanel(wxWindow* parent, std::shared_ptr<BillMonth> bm);
+        ~BillCollectionPanel() {}
+
+        void UpdateBillMonth();
+        void RemoveBill(const std::string creditor);
     private:
         wxWindow* mParent;
         std::shared_ptr<BillMonth> mBillCollection;
 
-        std::vector<std::shared_ptr<BillPanelRow>> mRows;
+        std::vector<BillPanelRow*> mRows;
         wxBoxSizer* mSizer;
     };
 
+    int mSelectedIx = 0;
+
+    wxListCtrl* mMonthSelector;
+    wxSimplebook* mMonthBook;
     BillTracker* mBillTracker;
     wxBoxSizer* mTopSizer;
 };
