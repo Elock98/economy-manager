@@ -21,6 +21,7 @@ private:
 class MainFrame : public wxFrame {
 public:
     MainFrame(const wxString& title);
+    void OnExit(wxCommandEvent& evt);
 };
 
 #endif // MYAPP_H

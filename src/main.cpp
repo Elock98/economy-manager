@@ -45,3 +45,7 @@ MainFrame::MainFrame(const wxString& title) : wxFrame(NULL, wxID_ANY, title) {
     Layout();
 
 }
+
+void MainFrame::OnExit(wxCommandEvent& evt) {
+    Close(true);
+}
