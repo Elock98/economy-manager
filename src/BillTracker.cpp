@@ -64,19 +64,31 @@ bool BillTracker::LoadBills() {
 }
 
 bool BillTracker::StoreBills() {
+    bool rc = true;
+    for (int ix = 0; ix < GetBillMonthCount(); ++ix) {
+        rc = StoreBill(ix);
+        if (!rc)
+            break; // Stop if we failed
+    }
+    return rc;
+}
+
+bool BillTracker::StoreBill(int ix) {
+    if (ix < 0 || ix > static_cast<int>(mBillData.size()))
+        return false;
+
     const std::string filenamePrefix = mBillsDataPath + "/Bills_";
 
-    for (auto billMonth : mBillData) {
-        std::string filename = filenamePrefix + billMonth->GetDate() + ".csv";
-        std::string data = "";
-        for (int ix = 0; ix < billMonth->BillCount(); ix++) {
-            auto bill = billMonth->GetBill(ix);
-            data += String::JoinStrings({bill->mCreditor, bill->mBillAmount, bill->mIsPaid, bill->mPaidDate}, ",");
-            if (ix != billMonth->BillCount() - 1) // Append newline for all but the last
-                data += "\n";
-        }
-        FileSystem::WriteFile(filename, data);
+    auto billMonth = GetBillMonth(ix);
+    std::string filename = filenamePrefix + billMonth->GetDate() + ".csv";
+    std::string data = "";
+    for (int ix = 0; ix < billMonth->BillCount(); ix++) {
+        auto bill = billMonth->GetBill(ix);
+        data += String::JoinStrings({bill->mCreditor, bill->mBillAmount, bill->mIsPaid, bill->mPaidDate}, ",");
+        if (ix != billMonth->BillCount() - 1) // Append newline for all but the last
+            data += "\n";
     }
+    FileSystem::WriteFile(filename, data);
     return true;
 }
 

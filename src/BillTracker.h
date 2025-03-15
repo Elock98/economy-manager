@@ -47,6 +47,7 @@ public:
 
     bool LoadBills();
     bool StoreBills();
+    bool StoreBill(int ix);
 
     bool AddBillMonth(const BillMonth& bm);
 
